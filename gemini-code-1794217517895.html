@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영화 티어리스트 스튜디오</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --surface-hover: #2a2a2a;
+            --border-color: #333333;
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+            --accent: #e50914;
+            --accent-hover: #f6121d;
+            --s-tier: #ff4757;
+            --a-tier: #ffa502;
+            --b-tier: #2ed573;
+            --unranked: #747d8c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header & Nav */
+        header {
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.5rrem;
+            cursor: pointer;
+        }
+
+        nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-sub);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .nav-btn.active, .nav-btn:hover {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background-color: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            font-size: 0.9rem;
+            animation: fadeInOut 3s forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* --- PAGE 1: Tier Editor --- */
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            background-color: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        /* Tier Board */
+        .tier-board {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background-color: var(--border-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .tier-row {
+            display: flex;
+            min-height: 100px;
+            background-color: var(--surface-color);
+            transition: background-color 0.2s;
+        }
+
+        .tier-row.drag-over {
+            background-color: var(--surface-hover);
+            border: 2px dashed var(--accent);
+        }
+
+        .tier-label {
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: white;
+            border-right: 2px solid var(--bg-color);
+            text-align: center;
+            padding: 0.5rem;
+            gap: 0.25rem;
+            user-select: none;
+        }
+
+        .tier-label.s { background-color: var(--s-tier); }
+        .tier-label.a { background-color: var(--a-tier); }
+        .tier-label.b { background-color: var(--b-tier); }
+
+        .tier-controls {
+            display: flex;
+            gap: 4px;
+            font-size: 0.75rem;
+        }
+        .tier-controls button {
+            background: rgba(0,0,0,0.3);
+            border: none;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tier-controls button:hover {
+            background: rgba(0,0,0,0.6);
+        }
+
+        .tier-dropzone {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px;
+            align-content: flex-start;
+            min-height: 100px;
+        }
+
+        /* Unranked Pool */
+        .unranked-section {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .unranked-section h3 {
+            font-size: 1rem;
+            color: var(--text-sub);
+            margin-bottom: 0.75rem;
+        }
+
+        .unranked-dropzone {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 90px;
+            padding: 5px;
+        }
+
+        /* Movie Card */
+        .movie-card {
+            width: 75px;
+            height: 110px;
+            background-color: var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            flex-shrink: 0;
+        }
+
+        .movie-card:active {
+            cursor: grabbing;
+        }
+
+        .movie-card.dragging {
+            opacity: 0.4;
+        }
+
+        .movie-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
+        .movie-card .movie-title-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.75);
+            font-size: 0.65rem;
+            padding: 3px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .movie-card .delete-btn {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .movie-card:hover .delete-btn {
+            display: flex;
+        }
+
+        .movie-card .delete-btn:hover {
+            background-color: var(--accent);
+        }
+
+        /* Modal / Add Form */
+        .form-container {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+
+        .form-container h3 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .input-group input {
+            flex: 1;
+            min-width: 200px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.95rem;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* --- PAGE 2: Share --- */
+        .share-container {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 600px;
+            margin: 2rem auto;
+            text-align: center;
+        }
+
+        .share-container h2 {
+            margin-bottom: 1rem;
+        }
+
+        .share-container p {
+            color: var(--text-sub);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .link-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .link-box input {
+            flex: 1;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        /* --- PAGE 3: Friends --- */
+        .friends-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .friend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .friend-item {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .friend-info h4 {
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .friend-info p {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            word-break: break-all;
+        }
+
+        .friend-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Read-only banner */
+        #readonly-banner {
+            display: none;
+            background-color: var(--accent);
+            color: white;
+            text-align: center;
+            padding: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="readonly-banner">⚠️ 친구의 티어리스트를 읽기 전용으로 보고 있습니다.</div>
+
+    <header>
+        <div class="logo" onclick="switchPage('editor')">🎬 Movie Tier Studio</div>
+        <nav>
+            <button class="nav-btn active" onclick="switchPage('editor')">티어 메인</button>
+            <button class="nav-btn" onclick="switchPage('share')">공유 & 링크</button>
+            <button class="nav-btn" onclick="switchPage('friends')">친구 목록</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- PAGE 1: EDITOR -->
+        <section id="page-editor" class="page active">
+            <div class="editor-header">
+                <h2>나만의 영화 티어리스트</h2>
+                <div class="controls-group">
+                    <button class="btn" onclick="resetTierData()">초기화</button>
+                </div>
+            </div>
+
+            <!-- Tier Board -->
+            <div class="tier-board" id="tier-board">
+                <!-- 동적으로 생성 또는 렌더링 -->
+            </div>
+
+            <!-- Unranked Pool -->
+            <div class="unranked-section">
+                <h3>미배치 영화 (Unranked)</h3>
+                <div class="unranked-dropzone" id="unranked-pool" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'unranked')"></div>
+            </div>
+
+            <!-- Add Movie Form -->
+            <div class="form-container">
+                <h3>새 영화 직접 추가</h3>
+                <div class="input-group">
+                    <input type="text" id="new-movie-title" placeholder="영화 제목 입력 (필수)">
+                    <input type="text" id="new-movie-poster" placeholder="포스터 이미지 URL 입력 (선택)">
+                    <button class="btn btn-primary" onclick="addNewMovie()">영화 추가</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE 2: SHARE -->
+        <section id="page-share" class="page">
+            <div class="share-container">
+                <h2>티어리스트 공유하기</h2>
+                <p>현재 작성한 나만의 티어리스트를 링크로 생성하여 친구에게 공유해 보세요.</p>
+                <div class="link-box">
+                    <input type="text" id="share-link-input" readonly>
+                    <button class="btn btn-primary" onclick="copyShareLink()">링크 복사</button>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: left; background: var(--bg-color); padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">데이터 백업 / 복원 (JSON)</h4>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="btn" onclick="exportJSON()">JSON 다운로드</button>
+                        <input type="file" id="import-file" style="display:none" onchange="importJSON(event)">
+                        <button class="btn" onclick="document.getElementById('import-file').click()">JSON 불러오기</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE 3: FRIENDS -->
+        <section id="page-friends" class="page">
+            <div class="friends-header">
+                <h2>친구 목록</h2>
+                <button class="btn btn-primary" onclick="openAddFriendModal()">친구 링크 등록</button>
+            </div>
+            <div class="friend-list" id="friend-list-container">
+                <!-- 동적 렌더링 -->
+            </div>
+        </section>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // 기본 영화 8편 (기획서 반영)
+        const DEFAULT_MOVIES = [
+            { id: 'm1', title: '인터스텔라', poster: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', tier: 's' },
+            { id: 'm2', title: '기생충', poster: 'https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg', tier: 's' },
+            { id: 'm3', title: '어벤져스', poster: 'https://image.tmdb.org/t/p/w500/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg', tier: 'a' },
+            { id: 'm4', title: '다크 나이트', poster: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg', tier: 's' },
+            { id: 'm5', title: '인셉션', poster: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg', tier: 'a' },
+            { id: 'm6', title: '라라랜드', poster: 'https://image.tmdb.org/t/p/w500/uDO8zWDhfWwoFdKS4fzkUJt0Rf0.jpg', tier: 'b' },
+            { id: 'm7', title: '스파이더맨', poster: 'https://image.tmdb.org/t/p/w500/5VTN0pR8gcqJ3EPUHSiMGnJQN9L.jpg', tier: 'b' },
+            { id: 'm8', title: '겨울왕국', poster: 'https://image.tmdb.org/t/p/w500/kgwjIb2JDILHNRkiHgzrKzS3Fqy.jpg', tier: 'unranked' }
+        ];
+
+        // 기본 티어 순서 정의 (기획서 기준: S, A, B)
+        let state = {
+            tiers: [
+                { id: 's', name: 'S (★★★)', colorClass: 's' },
+                { id: 'a', name: 'A (★★)', colorClass: 'a' },
+                { id: 'b', name: 'B (★)', colorClass: 'b' }
+            ],
+            movies: [],
+            friends: []
+        };
+
+        let isReadOnly = false;
+
+        // 초기 로드 및 URL 파라미터 확인
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedData = urlParams.get('data');
+
+            if (sharedData) {
+                try {
+                    const decoded = JSON.parse(atob(sharedData));
+                    state.movies = decoded.movies || [];
+                    if (decoded.tiers) state.tiers = decoded.tiers;
+                    isReadOnly = true;
+                    document.getElementById('readonly-banner').style.display = 'block';
+                    showToast('친구의 티어리스트를 불러왔습니다. (읽기 전용)');
+                } catch (e) {
+                    showToast('공유 링크가 잘못되었거나 손상되었습니다.');
+                    loadLocalStorage();
+                }
+            } else {
+                loadLocalStorage();
+            }
+
+            renderApp();
+        });
+
+        function loadLocalStorage() {
+            const savedMovies = localStorage.getItem('movie_tier_movies');
+            const savedTiers = localStorage.getItem('movie_tier_tiers');
+            const savedFriends = localStorage.getItem('movie_tier_friends');
+
+            if (savedMovies) {
+                try { state.movies = JSON.parse(savedMovies); } catch(e) { state.movies = DEFAULT_MOVIES; }
+            } else {
+                state.movies = [...DEFAULT_MOVIES];
+            }
+
+            if (savedTiers) {
+                try { state.tiers = JSON.parse(savedTiers); } catch(e) {}
+            }
+
+            if (savedFriends) {
+                try { state.friends = JSON.parse(savedFriends); } catch(e) {}
+            }
+        }
+
+        function saveLocalStorage() {
+            if (isReadOnly) return;
+            localStorage.setItem('movie_tier_movies', JSON.stringify(state.movies));
+            localStorage.setItem('movie_tier_tiers', JSON.stringify(state.tiers));
+            localStorage.setItem('movie_tier_friends', JSON.stringify(state.friends));
+        }
+
+        // 페이지 전환 함수 (3페이지 구현)
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            
+            // 네비게이션 버튼 활성화 맞추기
+            const navButtons = document.querySelectorAll('.nav-btn');
+            if (pageId === 'editor') navButtons[0].classList.add('active');
+            if (pageId === 'share') {
+                navButtons[1].classList.add('active');
+                generateShareLink();
+            }
+            if (pageId === 'friends') {
+                navButtons[2].classList.add('active');
+                renderFriends();
+            }
+        }
+
+        // 토스트 알림 표시
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // 앱 렌더링
+        function renderApp() {
+            renderTierBoard();
+            renderUnrankedPool();
+        }
+
+        function renderTierBoard() {
+            const board = document.getElementById('tier-board');
+            board.innerHTML = '';
+
+            state.tiers.forEach((tier, index) => {
+                const row = document.createElement('div');
+                row.className = 'tier-row';
+                row.ondragover = (e) => allowDrop(e, row);
+                row.ondragleave = (e) => removeDropStyle(row);
+                row.ondrop = (e) => dropToZone(e, tier.id);
+
+                // 티어 라벨 및 순서 변경 컨트롤
+                const label = document.createElement('div');
+                label.className = `tier-label ${tier.colorClass}`;
+                label.innerHTML = `
+                    <span>${tier.name}</span>
+                    ${!isReadOnly ? `
+                    <div class="tier-controls">
+                        <button onclick="moveTierOrder(${index}, -1)" title="위로">▲</button>
+                        <button onclick="moveTierOrder(${index}, 1)" title="아래로">▼</button>
+                    </div>` : ''}
+                `;
+                row.appendChild(label);
+
+                // 드롭존 컨테이너
+                const dropzone = document.createElement('div');
+                dropzone.className = 'tier-dropzone';
+                dropzone.id = `tier-${tier.id}`;
+
+                // 해당 등급의 영화 카드 배치
+                const tierMovies = state.movies.filter(m => m.tier === tier.id);
+                tierMovies.forEach(movie => {
+                    dropzone.appendChild(createMovieCardElement(movie));
+                });
+
+                row.appendChild(dropzone);
+                board.appendChild(row);
+            });
+        }
+
+        function renderUnrankedPool() {
+            const pool = document.getElementById('unranked-pool');
+            pool.innerHTML = '';
+
+            const unrankedMovies = state.movies.filter(m => m.tier === 'unranked');
+            unrankedMovies.forEach(movie => {
+                pool.appendChild(createMovieCardElement(movie));
+            });
+        }
+
+        function createMovieCardElement(movie) {
+            const card = document.createElement('div');
+            card.className = 'movie-card';
+            if (!isReadOnly) card.draggable = true;
+            card.dataset.id = movie.id;
+
+            card.ondragstart = (e) => {
+                e.dataTransfer.setData('text/plain', movie.id);
+                card.classList.add('dragging');
+            };
+            card.ondragend = () => card.classList.remove('dragging');
+
+            const posterUrl = movie.poster && movie.poster.trim() !== '' 
+                ? movie.poster 
+                : 'https://via.placeholder.com/75x110?text=No+Image';
+
+            card.innerHTML = `
+                <img src="${posterUrl}" alt="${movie.title}" onerror="this.src='https://via.placeholder.com/75x110?text=Error'">
+                <div class="movie-title-overlay">${movie.title}</div>
+                ${!isReadOnly ? `<button class="delete-btn" onclick="deleteMovie(event, '${movie.id}')">✕</button>` : ''}
+            `;
+
+            return card;
+        }
+
+        // 드래그 앤 드롭 핸들러
+        function allowDrop(e, element) {
+            e.preventDefault();
+            if (element && element.classList) element.classList.add('drag-over');
+        }
+
+        function removeDropStyle(e) {
+            if (e.currentTarget && e.currentTarget.classList) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        }
+
+        function dropToZone(e, targetTierId) {
+            e.preventDefault();
+            if (isReadOnly) return;
+            const movieId = e.dataTransfer.getData('text/plain');
+            if (!movieId) return;
+
+            const movie = state.movies.find(m => m.id === movieId);
+            if (movie) {
+                movie.tier = targetTierId;
+                saveLocalStorage();
+                renderApp();
+                showToast(`'${movie.title}' 이동 완료`);
+            }
+        }
+
+        // 행 순서 변경 (위/아래)
+        function moveTierOrder(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= state.tiers.length) return;
+
+            const temp = state.tiers[index];
+            state.tiers[index] = state.tiers[newIndex];
+            state.tiers[newIndex] = temp;
+
+            saveLocalStorage();
+            renderApp();
+            showToast('티어 행 순서가 변경되었습니다.');
+        }
+
+        // 영화 추가 (제목 필수, 포스터 없으면 기본 이미지)
+        function addNewMovie() {
+            if (isReadOnly) return;
+            const titleInput = document.getElementById('new-movie-title');
+            const posterInput = document.getElementById('new-movie-poster');
+
+            const title = titleInput.value.trim();
+            const poster = posterInput.value.trim();
+
+            if (!title) {
+                alert('영화 제목을 입력해주세요.');
+                titleInput.focus();
+                return;
+            }
+
+            const newMovie = {
+                id: 'm_' + Date.now(),
+                title: title,
+                poster: poster,
+                tier: 'unranked'
+            };
+
+            state.movies.push(newMovie);
+            saveLocalStorage();
+            renderApp();
+
+            titleInput.value = '';
+            posterInput.value = '';
+            showToast(`'${title}' 영화가 미배치 목록에 추가되었습니다.`);
+        }
+
+        // 영화 삭제 (confirm 확인 후 삭제)
+        function deleteMovie(e, movieId) {
+            e.stopPropagation();
+            if (isReadOnly) return;
+
+            const movie = state.movies.find(m => m.id === movieId);
+            if (!movie) return;
+
+            if (confirm(`'${movie.title}' 영화를 삭제하시겠습니까?`)) {
+                state.movies = state.movies.filter(m => m.id !== movieId);
+                saveLocalStorage();
+                renderApp();
+                showToast('영화가 삭제되었습니다.');
+            }
+        }
+
+        // 티어리스트 초기화
+        function resetTierData() {
+            if (isReadOnly) return;
+            if (confirm('모든 티어 배치를 초기 상태로 되돌리시겠습니까?')) {
+                state.movies = JSON.parse(JSON.stringify(DEFAULT_MOVIES));
+                saveLocalStorage();
+                renderApp();
+                showToast('티어리스트가 초기화되었습니다.');
+            }
+        }
+
+        // 공유 링크 생성
+        function generateShareLink() {
+            const dataString = JSON.stringify({
+                movies: state.movies,
+                tiers: state.tiers
+            });
+            const encoded = btoa(unescape(encodeURIComponent(dataString)));
+            const link = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+            document.getElementById('share-link-input').value = link;
+        }
+
+        function copyShareLink() {
+            const input = document.getElementById('share-link-input');
+            input.select();
+            document.execCommand('copy');
+            showToast('공유 링크가 클립보드에 복사되었습니다.');
+
+            // 친구 목록에 자동 추가 제안
+            const friendName = prompt('친구 목록에 이 링크를 저장하시겠습니까? 친구 이름을 입력하세요:', '내 친구');
+            if (friendName) {
+                state.friends.push({ name: friendName, link: input.value });
+                saveLocalStorage();
+                showToast('친구 목록에 저장되었습니다.');
+            }
+        }
+
+        // JSON 내보내기 / 가져오기
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "movie_tier_backup.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('JSON 백업 파일이 다운로드되었습니다.');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.movies) {
+                        state.movies = imported.movies;
+                        if (imported.tiers) state.tiers = imported.tiers;
+                        saveLocalStorage();
+                        renderApp();
+                        showToast('데이터를 성공적으로 불러왔습니다.');
+                    }
+                } catch (err) {
+                    alert('올바른 백업 파일 형식이 아닙니다.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 친구 목록 관리 기능 ---
+        function openAddFriendModal() {
+            const name = prompt('친구 이름을 입력하세요:');
+            if (!name) return;
+            const link = prompt('친구의 공유 링크 URL을 입력하세요:');
+            if (!link) return;
+
+            state.friends.push({ name, link });
+            saveLocalStorage();
+            renderFriends();
+            showToast('친구가 목록에 추가되었습니다.');
+        }
+
+        function renderFriends() {
+            const container = document.getElementById('friend-list-container');
+            container.innerHTML = '';
+
+            if (state.friends.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-sub); text-align: center; padding: 2rem;">등록된 친구 링크가 없습니다. 공유 탭에서 친구를 추가해 보세요.</p>`;
+                return;
+            }
+
+            state.friends.forEach((friend, index) => {
+                const item = document.createElement('div');
+                item.className = 'friend-item';
+                item.innerHTML = `
+                    <div class="friend-info">
+                        <h4>${friend.name}의 티어리스트</h4>
+                        <p>${friend.link}</p>
+                    </div>
+                    <div class="friend-actions">
+                        <button class="btn btn-primary" onclick="window.open('${friend.link}', '_blank')">열기</button>
+                        <button class="btn" onclick="deleteFriend(${index})">삭제</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function deleteFriend(index) {
+            if (confirm('친구 목록에서 삭제하시겠습니까?')) {
+                state.friends.splice(index, 1);
+                saveLocalStorage();
+                renderFriends();
+                showToast('친구 목록에서 삭제되었습니다.');
+            }
+        }
+    </script>
+</body>
+</html>
